@@ -48,9 +48,13 @@ the configured `seconds` before it succeeds. An OK or WARN entry resets it.
 `ComputeAreaRecoveryForce` requires `diagnostic_name="Navigation/AreaLimit"` and
 reads its coordinates from a single fresh diagnostic snapshot.
 
+Each bundled tree evaluates `UpdateMissionControlFromSafety` before its action
+sequence on every tick. This keeps `mission_control` current while an action is
+`RUNNING`; the ordered action sequence retains the robot-specific priority.
+
 Custom trees using implicit node-name selection, sensor-only names such as
 `GPS`, or `diagnostic_suffix` must migrate to these explicit inputs. The bundled
-safety tree is migrated.
+per-robot trees use these inputs.
 
 Every BT leaf that commands or queries a robot requires an explicit
 `robot_namespace` input. Trees pass the shared `{robot_namespace}` blackboard
@@ -70,18 +74,6 @@ missing mandatory data are not configured yet. The existing missing-data
 semantics remain: error predicates do not treat a missing entry as an error;
 `DiagnosticsUnavailableFor` does treat it as unavailable. These policy decisions
 must be agreed before claiming that absent diagnostics prevent mission execution.
-
-## Validation
-
-The gtests exercise source identity lookup across display-root changes, isolation
-between robots, ambiguous identities, snapshot removal, reception expiry and
-recovery, explicit condition inputs, configured STALE policy, and GPS availability.
-`sura_bt` also tests area recovery through the shared monitor.
-
-Build and test `sura_safety` and `sura_bt` together so the executable and shared
-library use the same API. Tests use intra-process ROS communication and do not
-send robot commands. DDS transport across processes and actual robot behavior
-still require an integration check in the target environment.
 
 ## SafetyErrorAsk
 

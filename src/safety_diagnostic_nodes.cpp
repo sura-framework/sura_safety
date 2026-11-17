@@ -46,6 +46,22 @@ std::vector<std::string> splitCommaList(const std::string & text)
   return values;
 }
 
+// Conditions reached after the policy check may escalate, but never downgrade it.
+void raiseMissionControl(const BT::Blackboard::Ptr & blackboard, const std::string & requested)
+{
+  const auto priority = [](const std::string & value) {
+    if (value == "abort") {return 3;}
+    if (value == "ask") {return 2;}
+    if (value == "pause") {return 1;}
+    return 0;
+  };
+  std::string current;
+  blackboard->get("mission_control", current);
+  if (priority(requested) > priority(current)) {
+    blackboard->set("mission_control", requested);
+  }
+}
+
 void appendSummaryValue(
   std::string & summary,
   const std::string & key,
@@ -251,7 +267,7 @@ BT::NodeStatus SafetyError::tick()
 
   if (safety_error)
   {
-    config().blackboard->set("mission_control", std::string{"pause"});
+    raiseMissionControl(config().blackboard, "pause");
 
     const auto value_summary =
       safetyValueSummary(*monitor, diagnostic_name);
@@ -311,7 +327,7 @@ BT::NodeStatus SafetyCriticalError::tick()
       if (!detail.empty() && detail != "OK") {reason += " Details: " + detail;}
       critical_state->set(diagnostic_name, reason);
     }
-    config().blackboard->set("mission_control", std::string{"abort"});
+    raiseMissionControl(config().blackboard, "abort");
     config().blackboard->set("mission_state", std::string{"aborted"});
 
     const auto value_summary =
@@ -367,7 +383,7 @@ BT::NodeStatus SafetyErrorAsk::tick()
 
   if (state->blocked_sources.count(source) != 0)
   {
-    config().blackboard->set("mission_control", std::string{"abort"});
+    raiseMissionControl(config().blackboard, "abort");
     config().blackboard->set("mission_state", std::string{"aborted"});
     return BT::NodeStatus::SUCCESS;
   }
@@ -385,7 +401,7 @@ BT::NodeStatus SafetyErrorAsk::tick()
   }
   if (state->active_source == source)
   {
-    config().blackboard->set("mission_control", std::string{"ask"});
+    raiseMissionControl(config().blackboard, "ask");
     return BT::NodeStatus::SUCCESS;
   }
   return BT::NodeStatus::FAILURE;
